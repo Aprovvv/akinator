@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 #include "tree.h"
 
 #define CMD_SIZE 64
@@ -10,6 +11,7 @@
 static tree_node_t* tree_from_file (FILE* data);
 static int run_akinator (FILE* data, tree_node_t* root);
 static int add_object(FILE* data, tree_node_t* node);
+static int fgetstr (FILE* fp, char* str, int n);
 
 int main()
 {
@@ -19,16 +21,18 @@ int main()
     putchar('\n');
     tree_print(stderr, root);
     tree_graph_dump(root);
-    /*char cmd[CMD_SIZE] = "";
+    char cmd[CMD_SIZE] = "";
+    putchar('\n');
     while (1)
     {
-    scanf("%" QUOTES(CMD_SIZE) "s", cmd);
-    if (strcmp(cmd, "start") == 0)
-        run_akinator(data, root);
-    if (strcmp(cmd, "end") == 0)
-        break;
-    }*/
-
+        printf("Введите start для начала, end для выхода\n");
+        scanf("%s", cmd);//TODO: ограничение по размеру
+        if (strcmp(cmd, "start") == 0)
+            run_akinator(data, root);
+        if (strcmp(cmd, "end") == 0)
+            break;
+    }
+    tree_graph_dump(root);
     fclose(data);
     branch_delete(root);
 }
@@ -37,7 +41,10 @@ static int run_akinator (FILE* data, tree_node_t* node)
 {
     int ch = 0;
     printf("Он(а) %s? [y/n] ", node->str);
-    if ((ch = getchar()) == 'y')
+    char str[STRLEN] = "";
+    getchar();
+    ch = getchar();
+    if (ch == 'y')
     {
         if (node->yes)
         {
@@ -66,40 +73,44 @@ static int run_akinator (FILE* data, tree_node_t* node)
 static int add_object(FILE* data, tree_node_t* node)
 {
     int ch = 0;
-    char str[CMD_SIZE];
+    char str[STRLEN] = "";
     printf("Упс! Я таких не знаю :(\n"
-           "А кто это?");
-    fgets(str, CMD_SIZE, stdin);
+           "А кто это?\n");
+    fgetstr(stdin, str, STRLEN);
     node->yes = new_node(str);
     node->no = new_node(node->str);
-    printf("Чем отличается %s от %s?\n", node->yes->str, node->no->str);
-    fgets(node->str, CMD_SIZE, stdin);
-    printf("%s %s, а %s нет? [y/n]\n", node->yes->str, node->str, node->no->str);
+    printf("Чем отличается %s от %s?\n",
+           node->yes->str, node->no->str);
+    fgetstr(stdin, node->str, STRLEN);
+    printf("%s %s, а %s нет? [y/n]\n",
+           node->yes->str, node->str, node->no->str);
     if ((ch = getchar()) == 'n')
     {
         tree_node_t* temp = node->yes;
         node->yes = node->no;
         node->no = temp;
-    }
-    printf("%s %s, а %s нет? [y/n]\n", node->yes->str, node->str, node->no->str);
-    if ((ch = getchar()) == 'y')
-    {
-        return 0;
-    }
-    else
-    {
-        fprintf(stderr, "бля ты че сделал нахуй\n");
-        abort();
+        printf("%s %s, а %s нет? [y/n]\n",
+           node->yes->str, node->str, node->no->str);
+        getchar();
+        if ((ch = getchar()) == 'y')
+        {
+            return 0;
+        }
+        else
+        {
+            fprintf(stderr, "бля ты че сделал нахуй\n");
+            abort();
+        }
     }
 }
 
 static tree_node_t* tree_from_file (FILE* data)
 {
     int ch = 0;
-    char str[CMD_SIZE] = "";
+    char str[STRLEN] = "";
     while((ch = fgetc(data)) != '{')
     {
-        fprintf(stderr, "%d ", ch);
+        //fprintf(stderr, "%d ", ch);
         if (ch == EOF)
             return NULL;
     }
@@ -109,7 +120,7 @@ static tree_node_t* tree_from_file (FILE* data)
             return NULL;
     }
     fscanf(data, "%[^\"]", str);
-    fprintf(stderr, "[%s]", str);
+    //fprintf(stderr, "[%s]", str);
     tree_node_t* node = new_node(str);
     ch = fgetc(data);
     while (ch != '{' && ch != '}')
@@ -127,4 +138,20 @@ static tree_node_t* tree_from_file (FILE* data)
         node->no = tree_from_file(data);
     }
     return node;
+}
+
+static int fgetstr (FILE* fp, char* str, int n)
+{
+    int ch = 32, i = 0;
+    while (isspace(ch))
+    {
+        ch = fgetc(fp);
+    }
+    while (ch != '\n' && ch != '\0' && ch != EOF && i < n)
+    {
+        str[i++] = (char)ch;
+        ch = fgetc(fp);
+    }
+    str[i] = 0;
+    return i;
 }
