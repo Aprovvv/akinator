@@ -8,7 +8,6 @@ struct tree_node_t
     char str[STRLEN];
     tree_node_t* yes;
     tree_node_t* no;
-    tree_node_t* prev;
 };
 
 tree_node_t* new_node(char str[STRLEN]);

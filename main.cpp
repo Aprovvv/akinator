@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include "tree.h"
-#include "list/list.h"
 
 #define CMD_SIZE 64
 #define QUOTES(a) #a
@@ -15,9 +14,12 @@ static tree_node_t* tree_from_file (FILE* data);
 static int run_akinator (FILE* data, tree_node_t* root);
 static int add_object(tree_node_t* node);
 static int fgetstr (FILE* fp, char* str, int n);
-static int ask_node (tree_node_t* node, list_t* list);
+static int ask_node (tree_node_t* node);
 static int print_node (FILE* data, tree_node_t* node, int code);
 static int tree_to_file (FILE* data, tree_node_t* root);
+
+//FIXME: обработка EOF
+//TODO: int на size_t
 
 int main()
 {
@@ -34,10 +36,8 @@ int main()
         return EXIT_FAILURE;
     }
     rewind(data);
-    putchar('\n');
     tree_graph_dump(root);
-    char cmd[CMD_SIZE] = "";
-    putchar('\n');
+    char cmd[CMD_SIZE+1] = "";
     while (1)
     {
         printf("Введите старт (start) для начала, выход (end) для выхода\n");
@@ -54,16 +54,12 @@ int main()
 
 static int run_akinator (FILE* data, tree_node_t* root)
 {
-    list_t* list = list_init(8);
-    if (ask_node(root, list) == ADD_VAL)
-    {
+    if (ask_node(root) == ADD_VAL)
         tree_to_file(data, root);
-    }
-    list_destroy(list);
     return 0;
 }
 
-static int ask_node (tree_node_t* node, list_t* list)
+static int ask_node (tree_node_t* node)
 {
     int ch = 0;
     while (1)
@@ -77,8 +73,7 @@ static int ask_node (tree_node_t* node, list_t* list)
         case 'д':
             if (node->yes)
             {
-                list_push_back(list, 1);
-                return ask_node(node->yes, list);
+                return ask_node(node->yes);
             }
             else
             {
@@ -90,8 +85,7 @@ static int ask_node (tree_node_t* node, list_t* list)
         case 'н':
             if (node->no)
             {
-                list_push_back(list, 0);
-                return ask_node(node->no, list);
+                return ask_node(node->no);
             }
             else
             {
@@ -99,6 +93,8 @@ static int ask_node (tree_node_t* node, list_t* list)
                 return ADD_VAL;
             }
             break;
+        case EOF:
+            return 0;
         default:
             printf("Неопознанная команда:(\n");
         }
