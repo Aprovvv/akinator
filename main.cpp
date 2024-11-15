@@ -22,21 +22,29 @@ static int tree_to_file (FILE* data, tree_node_t* root);
 int main()
 {
     FILE* data = fopen("data.txt", "r+");
+    if (data == NULL)
+    {
+        fprintf(stderr, "Ошибка открытия файла\n");
+        return EXIT_FAILURE;
+    }
     tree_node_t* root = tree_from_file(data);
+    if (root == NULL)
+    {
+        fprintf(stderr, "Ошибка чтения дерева из файла\n");
+        return EXIT_FAILURE;
+    }
     rewind(data);
-    assert(root != NULL);
     putchar('\n');
-    tree_print(stderr, root);
     tree_graph_dump(root);
     char cmd[CMD_SIZE] = "";
     putchar('\n');
     while (1)
     {
-        printf("Введите start для начала, end для выхода\n");
+        printf("Введите старт (start) для начала, выход (end) для выхода\n");
         scanf("%s", cmd);//TODO: ограничение по размеру
-        if (strcmp(cmd, "start") == 0)
+        if (strcmp(cmd, "старт") == 0 || strcmp(cmd, "start") == 0)
             run_akinator(data, root);
-        if (strcmp(cmd, "end") == 0)
+        if (strcmp(cmd, "выход") == 0 || strcmp(cmd, "end") == 0)
             break;
     }
     tree_graph_dump(root);
@@ -58,34 +66,41 @@ static int run_akinator (FILE* data, tree_node_t* root)
 static int ask_node (tree_node_t* node, list_t* list)
 {
     int ch = 0;
-    printf("Он(а) %s? [y/n] ", node->str);
-    char str[STRLEN] = "";
-    getchar();
-    ch = getchar();
-    if (ch == 'y')
+    while (1)
     {
-        if (node->yes)
+        printf("Он(а) %s? [y/n]\n", node->str);
+        getchar();
+        ch = getchar();
+        switch(ch)
         {
-            list_push_back(list, 1);
-            return ask_node(node->yes, list);
-        }
-        else
-        {
-            printf("Я так и знал!\n");
-            return 0;
-        }
-    }
-    if (ch == 'n')
-    {
-        if (node->no)
-        {
-            list_push_back(list, 0);
-            return ask_node(node->no, list);
-        }
-        else
-        {
-            add_object(node);
-            return ADD_VAL;
+        case 'y':
+        case 'д':
+            if (node->yes)
+            {
+                list_push_back(list, 1);
+                return ask_node(node->yes, list);
+            }
+            else
+            {
+                printf("Я так и знал!\n");
+                return 0;
+            }
+            break;
+        case 'n':
+        case 'н':
+            if (node->no)
+            {
+                list_push_back(list, 0);
+                return ask_node(node->no, list);
+            }
+            else
+            {
+                add_object(node);
+                return ADD_VAL;
+            }
+            break;
+        default:
+            printf("Неопознанная команда:(\n");
         }
     }
     return 0;
@@ -107,20 +122,23 @@ static int add_object (tree_node_t* node)
            node->yes->str, node->str, node->no->str);
     if ((ch = getchar()) == 'n')
     {
-        tree_node_t* temp = node->yes;
-        node->yes = node->no;
-        node->no = temp;
-        printf("%s %s, а %s нет? [y/n]\n",
-           node->yes->str, node->str, node->no->str);
-        getchar();
-        if ((ch = getchar()) == 'y')
+        while(1)
         {
-            return 0;
-        }
-        else
-        {
-            fprintf(stderr, "бля ты че сделал нахуй\n");
-            abort();
+            tree_node_t* temp = node->yes;
+            node->yes = node->no;
+            node->no = temp;
+            printf("%s %s, а %s нет? [y/n]\n",
+            node->yes->str, node->str, node->no->str);
+            getchar();
+            if ((ch = getchar()) == 'y')
+            {
+                return 0;
+            }
+            else
+            {
+                fprintf(stderr, "Ошибка! %s должен относиться к хоть какой-то "
+                        "категории. Попробуйте еще раз!\n", node->no->str);
+            }
         }
     }
     return 0;
@@ -159,7 +177,6 @@ static tree_node_t* tree_from_file (FILE* data)
     char str[STRLEN] = "";
     while((ch = fgetc(data)) != '{')
     {
-        //fprintf(stderr, "%d ", ch);
         if (ch == EOF)
             return NULL;
     }
@@ -169,7 +186,6 @@ static tree_node_t* tree_from_file (FILE* data)
             return NULL;
     }
     fscanf(data, "%[^\"]", str);
-    //fprintf(stderr, "[%s]", str);
     tree_node_t* node = new_node(str);
     ch = fgetc(data);
     while (ch != '{' && ch != '}')
@@ -178,7 +194,6 @@ static tree_node_t* tree_from_file (FILE* data)
     {
         node->no = NULL;
         node->yes = NULL;
-        fprintf(stderr, "}");
     }
     else
     {
