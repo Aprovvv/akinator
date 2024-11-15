@@ -13,20 +13,6 @@ tree_node_t* new_node(char str[STRLEN])
     return p;
 }
 
-/*void node_insert(tree_node_t* node, int val)
-{
-    if (val < node->val)
-        if (node->yes)
-            node_insert(node->yes, val);
-        else
-            node->yes = new_node(val);
-    else
-        if (node->no)
-            node_insert(node->no, val);
-        else
-            node->no = new_node(val);
-}*/
-
 void branch_delete(tree_node_t* node)
 {
     if (node->yes)
@@ -83,12 +69,12 @@ static void add_dot_node(FILE* fp, tree_node_t* node, size_t code)
     fprintf(fp, "%zu [label = \"%s\"];\n", code, node->str);
     if (node->yes)
     {
-        fprintf(fp, "%zu -> %zu;\n", code, code*2 + 0);
+        fprintf(fp, "%zu -> %zu [label = да];\n", code, code*2 + 0);
         add_dot_node(fp, node->yes, code*2 + 0);
     }
     if (node->no)
     {
-        fprintf(fp, "%zu -> %zu\n", code, code*2 + 1);
+        fprintf(fp, "%zu -> %zu [label = нет]\n", code, code*2 + 1);
         add_dot_node(fp, node->no, code*2 + 1);
     }
 }
