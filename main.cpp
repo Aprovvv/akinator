@@ -4,19 +4,26 @@
 #include <assert.h>
 #include <ctype.h>
 #include "tree.h"
+#include "list/list.h"
 
 #define CMD_SIZE 64
 #define QUOTES(a) #a
 
+const int ADD_VAL = 228;
+
 static tree_node_t* tree_from_file (FILE* data);
 static int run_akinator (FILE* data, tree_node_t* root);
-static int add_object(FILE* data, tree_node_t* node);
+static int add_object(tree_node_t* node);
 static int fgetstr (FILE* fp, char* str, int n);
+static int ask_node (tree_node_t* node, list_t* list);
+static int print_node (FILE* data, tree_node_t* node, int code);
+static int tree_to_file (FILE* data, tree_node_t* root);
 
 int main()
 {
     FILE* data = fopen("data.txt", "r+");
     tree_node_t* root = tree_from_file(data);
+    rewind(data);
     assert(root != NULL);
     putchar('\n');
     tree_print(stderr, root);
@@ -37,7 +44,18 @@ int main()
     branch_delete(root);
 }
 
-static int run_akinator (FILE* data, tree_node_t* node)
+static int run_akinator (FILE* data, tree_node_t* root)
+{
+    list_t* list = list_init(8);
+    if (ask_node(root, list) == ADD_VAL)
+    {
+        tree_to_file(data, root);
+    }
+    list_destroy(list);
+    return 0;
+}
+
+static int ask_node (tree_node_t* node, list_t* list)
 {
     int ch = 0;
     printf("Он(а) %s? [y/n] ", node->str);
@@ -48,7 +66,8 @@ static int run_akinator (FILE* data, tree_node_t* node)
     {
         if (node->yes)
         {
-            run_akinator(data, node->yes);
+            list_push_back(list, 1);
+            return ask_node(node->yes, list);
         }
         else
         {
@@ -60,17 +79,19 @@ static int run_akinator (FILE* data, tree_node_t* node)
     {
         if (node->no)
         {
-            run_akinator(data, node->no);
+            list_push_back(list, 0);
+            return ask_node(node->no, list);
         }
         else
         {
-            add_object(data, node);
+            add_object(node);
+            return ADD_VAL;
         }
     }
     return 0;
 }
 
-static int add_object(FILE* data, tree_node_t* node)
+static int add_object (tree_node_t* node)
 {
     int ch = 0;
     char str[STRLEN] = "";
@@ -102,6 +123,34 @@ static int add_object(FILE* data, tree_node_t* node)
             abort();
         }
     }
+    return 0;
+}
+
+static int tree_to_file (FILE* data, tree_node_t* root)
+{
+    rewind(data);
+    print_node(data, root, 0);
+    return 0;
+}
+
+static int print_node (FILE* data, tree_node_t* node, int code)
+{
+    for (int i = 0; i < code; i++)
+        fprintf(data, "\t");
+    fprintf(data, "{\n");
+    for (int i = 0; i < code; i++)
+        fprintf(data, "\t");
+    fprintf(data, "\"%s\"\n", node->str);
+
+    if (node->no && node->yes)
+    {
+        print_node(data, node->yes, code + 1);
+        print_node(data, node->no, code + 1);
+    }
+    for (int i = 0; i < code; i++)
+        fprintf(data, "\t");
+    fprintf(data, "}\n");
+    return 0;
 }
 
 static tree_node_t* tree_from_file (FILE* data)
