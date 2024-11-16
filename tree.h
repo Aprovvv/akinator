@@ -14,6 +14,6 @@ tree_node_t* new_node(char str[STRLEN]);
 void node_insert(tree_node_t* node, int val);
 void branch_delete(tree_node_t* node);
 void tree_print(FILE* fp, tree_node_t* node);
-void tree_graph_dump(tree_node_t* node);
+void tree_graph_dump(tree_node_t* node, tree_node_t* the_node);
 
 #endif

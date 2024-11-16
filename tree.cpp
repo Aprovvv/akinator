@@ -3,7 +3,7 @@
 #include <string.h>
 #include "tree.h"
 
-static void add_dot_node(FILE* fp, tree_node_t* node, size_t code);
+static void add_dot_node(FILE* fp, tree_node_t* node, tree_node_t* the_node, size_t code);
 
 tree_node_t* new_node(char str[STRLEN])
 {
@@ -35,7 +35,7 @@ void tree_print(FILE* fp, tree_node_t* node)
     fprintf(fp, ")");
 }
 
-void tree_graph_dump(tree_node_t* node)
+void tree_graph_dump(tree_node_t* node, tree_node_t* the_node)
 {
     static int numb = 0;
     numb++;
@@ -55,7 +55,7 @@ void tree_graph_dump(tree_node_t* node)
     fprintf(fp, "digraph G{\n"
                 "\tnode[shape=ellipse]\n"
                 "\t{\n");
-    add_dot_node(fp, node, 1);
+    add_dot_node(fp, node, the_node, 1);
 
     fprintf(fp, "\t}\n}");
     fclose(fp);
@@ -64,17 +64,20 @@ void tree_graph_dump(tree_node_t* node)
     system(command);
 }
 
-static void add_dot_node(FILE* fp, tree_node_t* node, size_t code)
+static void add_dot_node(FILE* fp, tree_node_t* node, tree_node_t* the_node, size_t code)
 {
-    fprintf(fp, "%zu [label = \"%s\"];\n", code, node->str);
+    if (node == the_node)
+        fprintf(fp, "%zu [label = \"%s\"; color=\"red\"];\n", code, node->str);
+    else
+        fprintf(fp, "%zu [label = \"%s\"];\n", code, node->str);
     if (node->yes)
     {
         fprintf(fp, "%zu -> %zu [label = да];\n", code, code*2 + 0);
-        add_dot_node(fp, node->yes, code*2 + 0);
+        add_dot_node(fp, node->yes, the_node, code*2 + 0);
     }
     if (node->no)
     {
         fprintf(fp, "%zu -> %zu [label = нет]\n", code, code*2 + 1);
-        add_dot_node(fp, node->no, code*2 + 1);
+        add_dot_node(fp, node->no, the_node, code*2 + 1);
     }
 }

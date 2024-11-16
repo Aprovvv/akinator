@@ -4,11 +4,13 @@
 #include <assert.h>
 #include <ctype.h>
 #include "tree.h"
+#include "list/list.h"
 
 #define CMD_SIZE 64
 #define QUOTES(a) #a
 
 const int ADD_VAL = 228;
+const int ERROR_VAL = 1;
 
 static tree_node_t* tree_from_file (FILE* data);
 static int run_akinator (FILE* data, tree_node_t* root);
@@ -17,9 +19,9 @@ static int fgetstr (FILE* fp, char* str, int n);
 static int ask_node (tree_node_t* node);
 static int print_node (FILE* data, tree_node_t* node, int code);
 static int tree_to_file (FILE* data, tree_node_t* root);
-
-//FIXME: обработка EOF
-//TODO: int на size_t
+static int read_word (FILE* fp, char* str, int n);
+static int give_definition (tree_node_t* root, char* str);
+static int search_node (tree_node_t* root, tree_node_t* node, char* str, list_t* list);
 
 int main()
 {
@@ -36,18 +38,26 @@ int main()
         return EXIT_FAILURE;
     }
     rewind(data);
-    tree_graph_dump(root);
+    tree_graph_dump(root, 0);
     char cmd[CMD_SIZE+1] = "";
     while (1)
     {
         printf("Введите старт (start) для начала, выход (end) для выхода\n");
-        scanf("%s", cmd);//TODO: ограничение по размеру
+        if (read_word(stdin, cmd, CMD_SIZE) == EOF)
+            break;
         if (strcmp(cmd, "старт") == 0 || strcmp(cmd, "start") == 0)
             run_akinator(data, root);
         if (strcmp(cmd, "выход") == 0 || strcmp(cmd, "end") == 0)
             break;
+        if (strcmp(cmd, "определение") == 0 || strcmp(cmd, "definition") == 0)
+        {
+            if (read_word(stdin, cmd, CMD_SIZE) == EOF)
+                break;
+            //printf("%s\n", cmd);
+            give_definition(root, cmd);
+        }
     }
-    tree_graph_dump(root);
+    tree_graph_dump(root, 0);
     fclose(data);
     branch_delete(root);
 }
@@ -65,8 +75,10 @@ static int ask_node (tree_node_t* node)
     while (1)
     {
         printf("Он(а) %s? [y/n]\n", node->str);
-        getchar();
+        //getchar();
         ch = getchar();
+        getchar();
+        //printf("ch = %d\n", ch);
         switch(ch)
         {
         case 'y':
@@ -84,14 +96,9 @@ static int ask_node (tree_node_t* node)
         case 'n':
         case 'н':
             if (node->no)
-            {
                 return ask_node(node->no);
-            }
             else
-            {
-                add_object(node);
-                return ADD_VAL;
-            }
+                return add_object(node);
             break;
         case EOF:
             return 0;
@@ -108,36 +115,54 @@ static int add_object (tree_node_t* node)
     char str[STRLEN] = "";
     printf("Упс! Я таких не знаю :(\n"
            "А кто это?\n");
-    fgetstr(stdin, str, STRLEN);
+    if (fgetstr(stdin, str, STRLEN) == EOF)
+        return ERROR_VAL;
+
     node->yes = new_node(str);
     node->no = new_node(node->str);
+    if (node->yes == NULL || node->no == NULL)
+        return ERROR_VAL;
+
     printf("Чем отличается %s от %s?\n",
            node->yes->str, node->no->str);
-    fgetstr(stdin, node->str, STRLEN);
+    if (fgetstr(stdin, node->str, STRLEN) == EOF)
+        return ERROR_VAL;
+
     printf("%s %s, а %s нет? [y/n]\n",
            node->yes->str, node->str, node->no->str);
-    if ((ch = getchar()) == 'n')
-    {
-        while(1)
+    while (1)
+        switch (ch = getchar())
         {
-            tree_node_t* temp = node->yes;
-            node->yes = node->no;
-            node->no = temp;
-            printf("%s %s, а %s нет? [y/n]\n",
-            node->yes->str, node->str, node->no->str);
-            getchar();
-            if ((ch = getchar()) == 'y')
+        case 'y':
+            return ADD_VAL;
+        case EOF:
+            return ERROR_VAL;
+        case 'n':
+        {
+            while(1)
             {
-                return 0;
-            }
-            else
-            {
-                fprintf(stderr, "Ошибка! %s должен относиться к хоть какой-то "
-                        "категории. Попробуйте еще раз!\n", node->no->str);
+                tree_node_t* temp = node->yes;
+                node->yes = node->no;
+                node->no = temp;
+                printf("%s %s, а %s нет? [y/n]\n",
+                node->yes->str, node->str, node->no->str);
+                getchar();
+                if ((ch = getchar()) == 'y')
+                {
+                    return ADD_VAL;
+                }
+                else
+                {
+                    if (ch == EOF)
+                        return ERROR_VAL;
+                    fprintf(stderr, "Ошибка! %s должен относиться к хоть какой-то "
+                            "категории. Попробуйте еще раз!\n", node->no->str);
+                }
             }
         }
-    }
-    return 0;
+        default:
+            printf("Неопознанная команда:(\n");
+        }
 }
 
 static int tree_to_file (FILE* data, tree_node_t* root)
@@ -200,6 +225,65 @@ static tree_node_t* tree_from_file (FILE* data)
     return node;
 }
 
+static int give_definition (tree_node_t* root, char* str)
+{
+    list_t* list = list_init(8);
+    search_node(root, root, str, list);
+    //graph_dump(list);
+    int size = list_size(list);
+    if (size == 0)
+    {
+        printf("Объект не найден\n");
+        return 0;
+    }
+    else
+    {
+        tree_node_t* tnode = root;
+        list_node* lnode = get_start(list);
+        printf("%s: ", str);
+        for (int i = 0; i < size; i++)
+        {
+            if (get_val(lnode))
+            {
+                printf("%s, ", tnode->str);
+                tnode = tnode->yes;
+            }
+            else
+            {
+                printf("не %s, ", tnode->str);
+                tnode = tnode->no;
+            }
+            lnode = get_next(list, lnode);
+        }
+        printf("\n");
+    }
+    list_destroy(list);
+    return 0;
+}
+
+static int search_node (tree_node_t* root, tree_node_t* node, char* str, list_t* list)
+{
+    //tree_graph_dump(root, node);
+    if (node->yes && node->no)
+    {
+        list_push_back(list, 1);
+        if (search_node(root, node->yes, str, list))
+            return 1;
+        list_pop_back(list);
+
+        list_push_back(list, 0);
+        if (search_node(root, node->no, str, list))
+            return 1;
+        list_pop_back(list);
+
+        return 0;
+    }
+    if (strcmp(node->str, str) == 0)
+        return 1;
+
+    return 0;
+}
+
 static int fgetstr (FILE* fp, char* str, int n)
 {
     int ch = 32, i = 0;
@@ -213,5 +297,23 @@ static int fgetstr (FILE* fp, char* str, int n)
         ch = fgetc(fp);
     }
     str[i] = 0;
+    if (ch == EOF)
+        return EOF;
+    return i;
+}
+
+static int read_word (FILE* fp, char* str, int n)
+{
+    int ch = 32, i = 0;
+    while (isspace(ch))
+        ch = getc(fp);
+    while (i < n && !isspace(ch) && ch != EOF)
+    {
+        str[i++] = (char)ch;
+        ch = getc(fp);
+    }
+    str[i] = 0;
+    if (ch == EOF)
+        return EOF;
     return i;
 }
