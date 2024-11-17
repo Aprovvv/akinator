@@ -21,7 +21,7 @@ static int print_node (FILE* data, tree_node_t* node, int code);
 static int tree_to_file (FILE* data, tree_node_t* root);
 static int read_word (FILE* fp, char* str, int n);
 static int give_definition (tree_node_t* root, char* str);
-static int search_node (tree_node_t* root, tree_node_t* node, char* str, list_t* list);
+static int compare (tree_node_t* root, char* str1, char* str2);
 
 int main()
 {
@@ -39,7 +39,7 @@ int main()
     }
     rewind(data);
     tree_graph_dump(root, 0);
-    char cmd[CMD_SIZE+1] = "";
+    char cmd[CMD_SIZE] = "";
     while (1)
     {
         printf("Введите старт (start) для начала, выход (end) для выхода\n");
@@ -55,6 +55,18 @@ int main()
                 break;
             //printf("%s\n", cmd);
             give_definition(root, cmd);
+        }
+        if (strcmp(cmd, "сравни") == 0 || strcmp(cmd, "compare") == 0)
+        {
+            char str1[CMD_SIZE] = "";
+            char str2[CMD_SIZE] = "";
+
+            if (read_word(stdin, str1, CMD_SIZE) == EOF)
+                break;
+            if (read_word(stdin, str2, CMD_SIZE) == EOF)
+                break;
+            //printf("%s\n", cmd);
+            compare(root, str1, str2);
         }
     }
     tree_graph_dump(root, 0);
@@ -72,13 +84,15 @@ static int run_akinator (FILE* data, tree_node_t* root)
 static int ask_node (tree_node_t* node)
 {
     int ch = 0;
+    char cmd[CMD_SIZE];
     while (1)
     {
         printf("Он(а) %s? [y/n]\n", node->str);
-        //getchar();
-        ch = getchar();
-        getchar();
-        //printf("ch = %d\n", ch);
+        if (read_word(stdin, cmd, CMD_SIZE) == EOF)
+            return ERROR_VAL;
+        ch = cmd[0];
+        if (ch == -48)
+            ch = 208*256 + 256 + cmd[1];
         switch(ch)
         {
         case 'y':
@@ -113,6 +127,7 @@ static int add_object (tree_node_t* node)
 {
     int ch = 0;
     char str[STRLEN] = "";
+    char cmd[CMD_SIZE];
     printf("Упс! Я таких не знаю :(\n"
            "А кто это?\n");
     if (fgetstr(stdin, str, STRLEN) == EOF)
@@ -131,12 +146,20 @@ static int add_object (tree_node_t* node)
     printf("%s %s, а %s нет? [y/n]\n",
            node->yes->str, node->str, node->no->str);
     while (1)
-        switch (ch = getchar())
+    {
+        if (read_word(stdin, cmd, CMD_SIZE) == EOF)
+            return ERROR_VAL;
+        ch = cmd[0];
+        if (ch == -48)
+            ch = 208*256 + 256 + cmd[1];
+        switch (ch)
         {
+        case 'д':
         case 'y':
             return ADD_VAL;
         case EOF:
             return ERROR_VAL;
+        case 'н':
         case 'n':
         {
             while(1)
@@ -145,9 +168,13 @@ static int add_object (tree_node_t* node)
                 node->yes = node->no;
                 node->no = temp;
                 printf("%s %s, а %s нет? [y/n]\n",
-                node->yes->str, node->str, node->no->str);
-                getchar();
-                if ((ch = getchar()) == 'y')
+                        node->yes->str, node->str, node->no->str);
+                if (read_word(stdin, cmd, CMD_SIZE) == EOF)
+                    return ERROR_VAL;
+                fprintf(stderr, "%d\n", ch);
+                if (ch == -48)
+                    ch = 208*256 + 256 + cmd[1];
+                if (ch == 'y' || ch == 'д')
                 {
                     return ADD_VAL;
                 }
@@ -163,6 +190,7 @@ static int add_object (tree_node_t* node)
         default:
             printf("Неопознанная команда:(\n");
         }
+    }
 }
 
 static int tree_to_file (FILE* data, tree_node_t* root)
@@ -228,7 +256,7 @@ static tree_node_t* tree_from_file (FILE* data)
 static int give_definition (tree_node_t* root, char* str)
 {
     list_t* list = list_init(8);
-    search_node(root, root, str, list);
+    tree_search_by_name(root, str, list);
     //graph_dump(list);
     int size = list_size(list);
     if (size == 0)
@@ -261,26 +289,56 @@ static int give_definition (tree_node_t* root, char* str)
     return 0;
 }
 
-static int search_node (tree_node_t* root, tree_node_t* node, char* str, list_t* list)
+static int compare (tree_node_t* root, char* str1, char* str2)
 {
-    //tree_graph_dump(root, node);
-    if (node->yes && node->no)
+    list_t* list1 = list_init(8);
+    list_t* list2 = list_init(8);
+    if (tree_search_by_name(root, str1, list1) == NULL)
     {
-        list_push_back(list, 1);
-        if (search_node(root, node->yes, str, list))
-            return 1;
-        list_pop_back(list);
-
-        list_push_back(list, 0);
-        if (search_node(root, node->no, str, list))
-            return 1;
-        list_pop_back(list);
-
-        return 0;
+        printf("%s не найден:(\n", str1);
+        return ERROR_VAL;
     }
-    if (strcmp(node->str, str) == 0)
-        return 1;
-
+    if (tree_search_by_name(root, str2, list2) == NULL)
+    {
+        printf("%s не найден:(\n", str2);
+        return ERROR_VAL;
+    }
+    list_node* lnode1 = get_start(list1);
+    list_node* lnode2 = get_start(list2);
+    tree_node_t* tnode = root;
+    int size1 = list_size(list1);
+    int size2 = list_size(list2);
+    int size = size1 > size2 ? size2 : size1;
+    if (get_val(lnode1) == get_val(lnode2))
+        printf("%s и %s объединяет то, что они ", str1, str2);
+    else
+        printf("У %s и %s нет ничего общего :(", str1, str2);
+    int i = 0;
+    //graph_dump(list1);
+    //graph_dump(list2);
+    for (i = 0; i < size; i++)
+    {
+        if (get_val(lnode1) != get_val(lnode2))
+            break;
+        if (get_val(lnode1) && get_val(lnode2))
+            printf("%s, ", tnode->str);
+        else
+            printf("не %s, ", tnode->str);
+        //tree_graph_dump(root, tnode);
+        if (get_val(lnode1))
+            tnode = tnode->yes;
+        else
+            tnode = tnode->no;
+        lnode1 = get_next(list1, lnode1);
+        lnode2 = get_next(list2, lnode2);
+    }
+    printf("\n");
+    if (get_val(lnode1))
+        printf("Их различает то, что %s %s, а %s нет\n", str1, tnode->str, str2);
+    if (get_val(lnode2))
+        printf("Их различает то, что %s %s, а %s нет\n", str2, tnode->str, str1);
+    list_destroy(list1);
+    list_destroy(list2);
     return 0;
 }
 

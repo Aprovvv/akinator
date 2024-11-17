@@ -3,7 +3,10 @@
 #include <string.h>
 #include "tree.h"
 
-static void add_dot_node(FILE* fp, tree_node_t* node, tree_node_t* the_node, size_t code);
+static void add_dot_node(FILE* fp,
+                         tree_node_t* node,
+                         tree_node_t* the_node,
+                         size_t code);
 
 tree_node_t* new_node(char str[STRLEN])
 {
@@ -20,6 +23,30 @@ void branch_delete(tree_node_t* node)
     if (node->no)
         branch_delete(node->no);
     free(node);
+}
+
+tree_node_t* tree_search_by_name (tree_node_t* node,
+                                  char* str, list_t* list)
+{
+    tree_node_t* ptr = NULL;
+    if (node->yes && node->no)
+    {
+        list_push_back(list, 1);
+        if (ptr = tree_search_by_name(node->yes, str, list))
+            return ptr;
+        list_pop_back(list);
+
+        list_push_back(list, 0);
+        if (ptr = tree_search_by_name(node->no, str, list))
+            return ptr;
+        list_pop_back(list);
+
+        return NULL;
+    }
+    if (strcmp(node->str, str) == 0)
+        return node;
+
+    return NULL;
 }
 
 void tree_print(FILE* fp, tree_node_t* node)
