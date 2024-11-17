@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <ctype.h>
 #include "tree.h"
 #include "list/list.h"
@@ -12,16 +11,19 @@
 const int ADD_VAL = 228;
 const int ERROR_VAL = 1;
 
-static tree_node_t* tree_from_file (FILE* data);
 static int run_akinator (FILE* data, tree_node_t* root);
-static int add_object(tree_node_t* node);
-static int fgetstr (FILE* fp, char* str, int n);
 static int ask_node (tree_node_t* node);
-static int print_node (FILE* data, tree_node_t* node, int code);
+static int add_object(tree_node_t* node);
+
+static tree_node_t* tree_from_file (FILE* data);
 static int tree_to_file (FILE* data, tree_node_t* root);
-static int read_word (FILE* fp, char* str, int n);
+static int print_node (FILE* data, tree_node_t* node, int code);
+
 static int give_definition (tree_node_t* root, char* str);
 static int compare (tree_node_t* root, char* str1, char* str2);
+
+static int fgetstr (FILE* fp, char* str, int n);
+static int read_word (FILE* fp, char* str, int n);
 
 int main()
 {
@@ -258,7 +260,7 @@ static int give_definition (tree_node_t* root, char* str)
     list_t* list = list_init(8);
     tree_search_by_name(root, str, list);
     //graph_dump(list);
-    int size = list_size(list);
+    size_t size = list_size(list);
     if (size == 0)
     {
         printf("Объект не найден\n");
@@ -269,7 +271,7 @@ static int give_definition (tree_node_t* root, char* str)
         tree_node_t* tnode = root;
         list_node* lnode = get_start(list);
         printf("%s: ", str);
-        for (int i = 0; i < size; i++)
+        for (size_t i = 0; i < size; i++)
         {
             if (get_val(lnode))
             {
@@ -306,17 +308,15 @@ static int compare (tree_node_t* root, char* str1, char* str2)
     list_node* lnode1 = get_start(list1);
     list_node* lnode2 = get_start(list2);
     tree_node_t* tnode = root;
-    int size1 = list_size(list1);
-    int size2 = list_size(list2);
-    int size = size1 > size2 ? size2 : size1;
+    size_t size1 = list_size(list1);
+    size_t size2 = list_size(list2);
+    size_t size = size1 > size2 ? size2 : size1;
     if (get_val(lnode1) == get_val(lnode2))
         printf("%s и %s объединяет то, что они ", str1, str2);
     else
         printf("У %s и %s нет ничего общего :(", str1, str2);
-    int i = 0;
-    //graph_dump(list1);
-    //graph_dump(list2);
-    for (i = 0; i < size; i++)
+
+    for (size_t i = 0; i < size; i++)
     {
         if (get_val(lnode1) != get_val(lnode2))
             break;
@@ -334,9 +334,11 @@ static int compare (tree_node_t* root, char* str1, char* str2)
     }
     printf("\n");
     if (get_val(lnode1))
-        printf("Их различает то, что %s %s, а %s нет\n", str1, tnode->str, str2);
+        printf("Их различает то, что %s %s, а %s нет\n",
+                str1, tnode->str, str2);
     if (get_val(lnode2))
-        printf("Их различает то, что %s %s, а %s нет\n", str2, tnode->str, str1);
+        printf("Их различает то, что %s %s, а %s нет\n",
+                str2, tnode->str, str1);
     list_destroy(list1);
     list_destroy(list2);
     return 0;
